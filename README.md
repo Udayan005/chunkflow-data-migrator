@@ -1,59 +1,207 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🚀 ChunkFlow
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+### High-Performance CSV Migration Engine (Laravel)
 
-## About Laravel
+ChunkFlow is a scalable CSV ingestion system designed to process **200k+ records efficiently** using chunked uploads, streaming file merging, asynchronous queue processing, and batched database writes.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Built to bypass memory limits, prevent timeouts, and handle large-scale migrations in production environments.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+# 📌 Table of Contents
 
-## Learning Laravel
+* Overview
+* Architecture Pipeline
+* System Components
+* Processing Workflow
+* Performance Strategies
+* Bottleneck Handling
+* Running the Project
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# 🌍 Overview
 
-## Laravel Sponsors
+Traditional CSV imports fail due to:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+* Memory exhaustion
+* Upload size limits
+* HTTP timeouts
+* Database lock contention
 
-### Premium Partners
+ChunkFlow solves these through a **decoupled pipeline architecture**.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+---
 
-## Contributing
+# 🏗 Architecture Pipeline
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```
+User Browser
+    │
+    ▼
+Chunk Upload (JS)
+    │
+    ▼
+Laravel Controller
+(File Merge Stream)
+    │
+    ▼
+Queue Dispatcher
+(Database/Redis)
+    │
+    ▼
+Worker Process
+(CSV Iterator)
+    │
+    ▼
+Batch Inserts
+(Database)
+```
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# 🔧 System Components
 
-## Security Vulnerabilities
+## Frontend
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+* File chunking via Blob slicing
+* Sequential upload control
+* Retry-ready design
 
-## License
+## Backend
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+* Chunk merge using PHP streams
+* Zero large-memory allocations
+* Queue job dispatch
+
+## Worker Layer
+
+* CSV iterator parsing
+* Row batching
+* Fault isolation
+
+## Database Layer
+
+* Batched inserts
+* Conflict-safe writes
+* Reduced network overhead
+
+---
+
+# ⚙️ Processing Workflow
+
+## Step 1 — Chunking
+
+File split in browser memory
+
+```
+2MB chunks
+Sequential upload
+Content-range tracking
+```
+
+## Step 2 — Stream Merge
+
+Chunks appended to final file
+
+* O(1) memory usage
+* Immediate cleanup
+* No file buffering
+
+## Step 3 — Queue Dispatch
+
+Web request ends quickly
+
+* Job serialized
+* Worker handles processing
+* Prevents timeout
+
+## Step 4 — CSV Processing
+
+Iterator-based parsing
+
+* One row in memory
+* Continuous streaming
+
+## Step 5 — Batch Insert
+
+Buffered database writes
+
+```
+1000 rows per insert
+Reduced round-trips
+Higher throughput
+```
+
+---
+
+# 🚄 Performance Strategies
+
+### Memory Safe
+
+* Streaming IO
+* Iterator parsing
+* Batch clearing
+
+### Network Efficient
+
+* Chunked upload
+* Batched DB writes
+
+### CPU Friendly
+
+* Async processing
+* Background workers
+
+### Scalable
+
+* Redis queue support
+* Horizontal workers
+
+---
+
+# ⚠️ Bottleneck Handling
+
+| Problem       | Solution              |
+| ------------- | --------------------- |
+| Memory Crash  | Stream file reads     |
+| HTTP Timeout  | Queue background jobs |
+| DB Locking    | Micro batching        |
+| Upload Limits | Client chunking       |
+
+---
+
+# ▶️ Running the Project
+
+```
+composer install
+php artisan migrate
+php artisan queue:work
+php artisan serve
+```
+
+---
+
+# 🧠 Design Philosophy
+
+ChunkFlow is built around:
+
+* Separation of concerns
+* Streaming over buffering
+* Async over blocking
+* Batch over iterative writes
+
+These principles ensure reliability under heavy data loads.
+
+---
+
+# 🏁 Result
+
+ChunkFlow delivers:
+
+* Large CSV ingestion capability
+* Stable memory usage
+* Timeout resistance
+* Scalable processing pipeline
+
+Designed for real-world migration and onboarding scenarios.
